@@ -37,7 +37,7 @@ The experiment requires the same environment as [LargeST](https://github.com/liu
 <img src='Fig/largest.png' alt='Performance on LargeST'>
 
 ## 3. Model Running
-To run MoFo on <b>LargeST</b>, for example on SD, you may directly execute the Python file in the terminal:
+To run MAGE on <b>LargeST</b>, for example on SD, you may directly execute the Python file in the terminal:
 ```
 python experiments/mage/main.py --device cuda:0 --dataset sd --years 2019 --model_name mage
 ```
