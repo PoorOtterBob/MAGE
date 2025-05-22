@@ -3,7 +3,7 @@ This is the official repository of our NIPS 2025 submission paper 425. The effec
 
 <br>
 
-<img src='Fig/main.png' width='300px' alt='Main Figure'>
+<img src='Fig/main.png' alt='Main Figure'>
 
 
 
@@ -27,11 +27,11 @@ The experiment requires the same environment as [LargeST](https://github.com/liu
 
 <br>
 
-<img src='Fig/ablation_sensitivity.png' width='300px' alt='Ablation Study and Hyperparameters Sensitivity'>
+<img src='Fig/ablation_sensitivity.png' alt='Ablation Study and Hyperparameters Sensitivity'>
 
-<img src='Fig/rank_load.png' width='300px' alt='Effective of Our MAGE module'>
+<img src='Fig/rank_load.png' alt='Effective of Our MAGE module'>
 
-<img src='Fig/largest.png' width='300px' alt='Performance on LargeST'>
+<img src='Fig/largest.png' alt='Performance on LargeST'>
 
 ## 3. Model Running
 To run STONE on <b>LargeST</b>, for example, you may execute this command in the terminal:
