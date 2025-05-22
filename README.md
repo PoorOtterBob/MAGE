@@ -13,7 +13,7 @@ We use 18 spatiotemporal datasets from four domains: **Traffic**, **Energy**, **
 
 <br>
 
-<img src='Fig/datasetg.png' alt='Dataset'>
+<img src='Fig/dataset.png' alt='Datasets'>
 
 ### 1.1 Generating the sub-datasets from LargeST
 We only introduce LargeST, which is the popular dataset in spatiotemporal learning here. The processing details of other datasets will be open and available after paper notification. Concretely, we use subdatasets in LargeST with year of 2019, which were followed by [LargeST](https://github.com/liuxu77/LargeST/blob/main). For example, you can download CA dataset from the provided [link](https://www.kaggle.com/datasets/liuxu77/largest) and please place the downloaded `archive.zip` file in the `data/ca` folder and unzip the file. 
