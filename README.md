@@ -3,13 +3,9 @@ This is the official repository of our NIPS 2025 submission paper 425. The effec
 
 <br>
 
-We show the pseudocode for the main algorithms, including <b>the Fréchet embedding process</b>, <b>STONE forward process</b>, and <b>the training process of STONE</b>. We will add it to the new version for a clear presentation.
+<img src='Fig/main.png' width='300px' alt='Main Figure'>
 
-<img src='img/Spatial Fréchet Embedding Layer.png' width='300px' alt='The algorithm of Spatial Fréchet Embedding Layer'>
 
-<img src='img/optimization flow.png' width='300px' alt='Optimization flow of STONE during training'>
-
-<img src='img/STONE.png' width='300px' alt='Framework of STONE'>
 
 ## 1. Introduction about the datasets
 ### 1.1 Generating the SD and GBA sub-datasets from CA dataset
@@ -30,6 +26,12 @@ We implement extra experiments on [Knowair](https://github.com/shuowang-ai/PM2.5
 The experiment requires the same environment as [LargeST](https://github.com/liuxu77/LargeST/blob/main), and need to add the libraries mentioned in the requirements in [Knowair](https://github.com/shuowang-ai/PM2.5-GNN).
 
 <br>
+
+<img src='Fig/ablation_sensitivity.png' width='300px' alt='Ablation Study and Hyperparameters Sensitivity'>
+
+<img src='Fig/rank_load.png' width='300px' alt='Effective of Our MAGE module'>
+
+<img src='Fig/largest.png' width='300px' alt='Performance on LargeST'>
 
 ## 3. Model Running
 To run STONE on <b>LargeST</b>, for example, you may execute this command in the terminal:
