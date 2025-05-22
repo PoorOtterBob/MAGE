@@ -5,9 +5,9 @@ import numpy as np
 from tqdm import tqdm
 from src.utils.metrics import masked_mape
 from src.utils.metrics import masked_rmse
-from src.utils.metrics import compute_all_metrics, masked_f1_score, masked_ber
+from src.utils.metrics import compute_all_metrics
 import sys
-torch.autograd.set_detect_anomaly(True) 
+
 class BaseEngine():
     def __init__(self, device, model, dataloader, scaler, sampler, loss_fn, lrate, optimizer, \
                  scheduler, clip_grad_value, max_epochs, patience, log_dir, logger, seed, 
@@ -37,8 +37,19 @@ class BaseEngine():
         self._logger.info('The number of parameters: {}'.format(self.model.param_num())) 
         # sys.exit()
 
+        self._bias = torch.zeros((self._args.blocknum, self._args.recur_num)).to(self._device)
+        self._bias_lrate = 0.001
+        self._balance_load_num = (self._args.bs*self._args.node_num*self._args.topk) / self._args.recur_num
+
     def _speed_calculation(self, time_list):
         return sum(time_list), sum(time_list) / len(time_list)
+
+    def present_time(self, train_time_list, val_time_list):
+        train_time, train_speed = self._speed_calculation(train_time_list)
+        val_time, val_speed = self._speed_calculation(val_time_list)
+        self._logger.info('Training Speed: {:.2f}s/epoch'.format(train_speed))               
+        self._logger.info('Validating Speed: {:.2f}s/epoch'.format(val_speed))               
+        self._logger.info('Time Cost: {:.2f}s'.format(train_time + val_time))   
 
     def _to_device(self, tensors):
         if isinstance(tensors, list):
@@ -74,93 +85,120 @@ class BaseEngine():
     def save_model(self, save_path):
         if not os.path.exists(save_path):
             os.makedirs(save_path)
-        filename = 'final_model_{}to{}_y{}_s{}.pt'.format(self._args.seq_len, 
-                                                      self._args.horizon, 
-                                                      self._args.years,
-                                                      self._seed)
+        filename = 'final_model_s{}_r{}_bb{}_bn{}_dim{}_gdim{}_topk{}_outer{}.pt'.format(self._seed, 
+                                                        self._args.recur_num,
+                                                        self._args.backbone,
+                                                        self._args.blocknum,
+                                                        self._args.model_dim,
+                                                        self._args.node_dim,
+                                                        self._args.topk,
+                                                        self._args.outer)
         torch.save(self.model.state_dict(), os.path.join(save_path, filename))
 
 
     def load_model(self, save_path):
-        filename = 'final_model_{}to{}_y{}_s{}.pt'.format(self._args.seq_len, 
-                                                      self._args.horizon, 
-                                                      self._args.years,
-                                                      self._seed)
+        filename = 'final_model_s{}_r{}_bb{}_bn{}_dim{}_gdim{}_topk{}_outer{}.pt'.format(self._seed, 
+                                                        self._args.recur_num,
+                                                        self._args.backbone,
+                                                        self._args.blocknum,
+                                                        self._args.model_dim,
+                                                        self._args.node_dim,
+                                                        self._args.topk,
+                                                        self._args.outer)
         self.model.load_state_dict(torch.load(
-            os.path.join(save_path, filename), map_location=torch.device(self._device)))   
+            os.path.join(save_path, filename), map_location=torch.device(self._device)))
+        # self._bias = torch.load(
+        #     os.path.join(save_path, filename), map_location=torch.device(self._device))  
 
-    def present_time(self, train_time_list, val_time_list):
-        train_time, train_speed = self._speed_calculation(train_time_list)
-        val_time, val_speed = self._speed_calculation(val_time_list)
-        self._logger.info('Training Speed: {:.2f}s/epoch'.format(train_speed))               
-        self._logger.info('Validating Speed: {:.2f}s/epoch'.format(val_speed))               
-        self._logger.info('Time Cost: {:.2f}s'.format(train_time + val_time))    
+    def save_bias(self, save_path):
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        filename = 'bias_s{}_r{}_bb{}_bn{}_dim{}_gdim{}_topk{}_outer{}.pt'.format(self._seed, 
+                                                        self._args.recur_num,
+                                                        self._args.backbone,
+                                                        self._args.blocknum,
+                                                        self._args.model_dim,
+                                                        self._args.node_dim,
+                                                        self._args.topk,
+                                                        self._args.outer)
+        torch.save(self._bias, os.path.join(save_path, filename))
+
+
+    def load_bias(self, save_path):
+        filename = 'bias_s{}_r{}_bb{}_bn{}_dim{}_gdim{}_topk{}_outer{}.pt'.format(self._seed, 
+                                                        self._args.recur_num,
+                                                        self._args.backbone,
+                                                        self._args.blocknum,
+                                                        self._args.model_dim,
+                                                        self._args.node_dim,
+                                                        self._args.topk,
+                                                        self._args.outer)
+        self._bias = torch.load(
+            os.path.join(save_path, filename), map_location=torch.device(self._device))
+        # self.model.load_state_dict(torch.load(
+        #     os.path.join(save_path, filename), map_location=torch.device(self._device))) 
 
     def train_batch(self):
         self.model.train()
-        cur_lr = None
+
         train_loss = []
         train_mape = []
         train_rmse = []
-
         self._dataloader['train_loader'].shuffle()
-        for X, label in tqdm(self._dataloader['train_loader'].get_iterator()):
+        for i, (X, label) in tqdm(enumerate(self._dataloader['train_loader'].get_iterator())):
             self._optimizer.zero_grad()
 
             # X (b, t, n, f), label (b, t, n, 1)
             X, label = self._to_device(self._to_tensor([X, label]))
-            pred = self.model(X, label)
-            # print(pred[:, 0, 0])
+            pred, topk_indices = self.model(X, None, self._bias)
             pred, label = self._inverse_transform([pred, label])
-            # print(self._scaler.mean, self._scaler.std)
-            # print(pred[:, 0, 0], label[:, 0, 0])
+
+            if i == 0:
+                print(topk_indices.shape)
             # handle the precision issue when performing inverse transform to label
             mask_value = torch.tensor(0)
             if label.min() < 1:
                 mask_value = label.min()
             if self._iter_cnt == 0:
                 print('Check mask value', mask_value)
-            
-            # print(pred, label)
-            
+
             loss = self._loss_fn(pred, label, mask_value)
             mape = masked_mape(pred, label, mask_value).item()
             rmse = masked_rmse(pred, label, mask_value).item()
-            # print(loss, mape, rmse)
-            
+
             loss.backward()
-            # (loss + loss_mi).backward()
             if self._clip_grad_value != 0:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self._clip_grad_value)
             self._optimizer.step()
 
-            if self._args.lr_update_in_step:
-                if self._lr_scheduler is None:
-                    cur_lr = self._lrate
-                else:
-                    cur_lr = self._lr_scheduler.get_last_lr()[0]
-                    self._lr_scheduler.step()
+            # print(topk_indices[0])
+            # self._bias = self._bias - self._bias_lrate * torch.sgn(topk_indices - self._balance_load_num)
 
             train_loss.append(loss.item())
             train_mape.append(mape)
             train_rmse.append(rmse)
 
+            '''if self._lr_scheduler is None:
+                cur_lr = self._lrate
+            else:
+                cur_lr = self._lr_scheduler.get_last_lr()[0]
+                self._lr_scheduler.step()'''
 
             self._iter_cnt += 1
-        return np.mean(train_loss), np.mean(train_mape), np.mean(train_rmse), cur_lr
+        return np.mean(train_loss), np.mean(train_mape), np.mean(train_rmse)
 
 
     def train(self):
         self._logger.info('Start training!')
-        train_time_list, val_time_list = [], []
-        wait = 0
-        min_loss = np.inf
-        if self._args.ct == 1:
+        if self._args.ct:
+            self._logger.info('Load trained')
             self.load_model(self._save_path)
-            print('Load and Continue!!!!!!!')
+        wait = 0
+        train_time_list, val_time_list = [], []
+        min_loss = np.inf
         for epoch in range(self._max_epochs):
             t1 = time.time()
-            mtrain_loss, mtrain_mape, mtrain_rmse, cur_lr = self.train_batch()
+            mtrain_loss, mtrain_mape, mtrain_rmse = self.train_batch()
             t2 = time.time()
             train_time_list.append(t2 - t1)
 
@@ -169,29 +207,30 @@ class BaseEngine():
             v2 = time.time()
             val_time_list.append(v2 - v1)
 
-            if not self._args.lr_update_in_step:
-                if self._lr_scheduler is None:
-                    cur_lr = self._lrate
-                else:
-                    cur_lr = self._lr_scheduler.get_last_lr()[0]
-                    self._lr_scheduler.step()
+            if self._lr_scheduler is None:
+                cur_lr = self._lrate
+            else:
+                cur_lr = self._lr_scheduler.get_last_lr()[0]
+                self._lr_scheduler.step()
 
             message = 'Epoch: {:03d}, Train Loss: {:.4f}, Train RMSE: {:.4f}, Train MAPE: {:.4f}, Valid Loss: {:.4f}, Valid RMSE: {:.4f}, Valid MAPE: {:.4f}, Train Time: {:.4f}s/epoch, Valid Time: {:.4f}s, LR: {:.4e}'
             self._logger.info(message.format(epoch + 1, mtrain_loss, mtrain_rmse, mtrain_mape, \
                                              mvalid_loss, mvalid_rmse, mvalid_mape, \
                                              (t2 - t1), (v2 - v1), cur_lr))
 
+            
             if mvalid_loss < min_loss:
                 self.save_model(self._save_path)
                 self._logger.info('Val loss decrease from {:.4f} to {:.4f}'.format(min_loss, mvalid_loss))
                 min_loss = mvalid_loss
                 wait = 0
+                self.save_bias(self._save_path)
             else:
                 wait += 1
                 if wait == self._patience:
                     self._logger.info('Early stop at epoch {}, loss = {:.6f}'.format(epoch + 1, min_loss))
                     break
-                
+
         self.present_time(train_time_list, val_time_list)
         self.evaluate('test')
 
@@ -199,30 +238,39 @@ class BaseEngine():
     def evaluate(self, mode):
         if mode == 'test':
             self.load_model(self._save_path)
+            try:
+                self.load_bias(self._save_path)
+            except:
+                print('No Loading Bias')
         self.model.eval()
-
+        
         preds = []
         labels = []
+        topK_num = torch.zeros(3, 16).to(self._args.device)
         with torch.no_grad():
             for X, label in tqdm(self._dataloader[mode + '_loader'].get_iterator()):
                 # X (b, t, n, f), label (b, t, n, 1)
                 X, label = self._to_device(self._to_tensor([X, label]))
-                pred = self.model(X, label)
+                output = self.model(X, label=None, bias=self._bias)
+                try:
+                    pred, topk_indices = output
+                    
+                except:
+                    pred = output
+                
+                topK_num = topK_num + topk_indices
                 pred, label = self._inverse_transform([pred, label])
-
+                # if mode == 'val':
+                #     self._bias = self._bias - self._bias_lrate * torch.sgn(topk_indices - self._balance_load_num)
                 preds.append(pred.squeeze(-1).cpu())
                 labels.append(label.squeeze(-1).cpu())
 
+         
+        np.save('/data/mjm1/AAA/draw/lb/lb.npy', (topK_num).cpu().numpy())
+        sys.exit(0)
+
         preds = torch.cat(preds, dim=0)
         labels = torch.cat(labels, dim=0)
-        # np.save('/home/mjm/LST/LargeST-main/NeurIPS2024-3075/draw/stgcn0.npy', preds.numpy())
-
-        # np.save('/home/mjm/LST/LargeST-main/AAAI2025/SD_BiST_preds.npy', preds.numpy())
-        # print('Done!!!!!!!!')
-        # np.save('/home/mjm/LST/LargeST-main/AAAI2025/SD_labels.npy', labels.numpy())
-        # print('Done!!!!!!!!')
-        # sys.exit()
-        # handle the precision issue when performing inverse transform to label
         mask_value = torch.tensor(0)
         if labels.min() < 1:
             mask_value = labels.min()
@@ -246,9 +294,5 @@ class BaseEngine():
                 test_mape.append(res[1])
                 test_rmse.append(res[2])
 
-            log = 'Average Test MAE: {:.4f}, Test RMSE: {:.4f}, Test MAPE: {:.4f}, Test BER: {:.4f}'
-            self._logger.info(log.format(np.mean(test_mae), np.mean(test_rmse), np.mean(test_mape), masked_ber(preds, labels, mask_value)))
-
-            '''f1_score = masked_f1_score(preds, labels)
-            log = 'F1 Score for level 0: {:.4f}, 1: {:.4f}, 2: {:.4f}'
-            self._logger.info(log.format(f1_score[0], f1_score[1], f1_score[2]))'''
+            log = 'Average Test MAE: {:.4f}, Test RMSE: {:.4f}, Test MAPE: {:.4f}'
+            self._logger.info(log.format(np.mean(test_mae), np.mean(test_rmse), np.mean(test_mape)))

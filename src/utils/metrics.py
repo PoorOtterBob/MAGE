@@ -1,5 +1,21 @@
 import torch
-import torcheval.metrics.functional as MF
+# import torcheval.metrics.functional as MF
+
+
+def masked_ber(preds, labels, null_val):
+    if torch.isnan(null_val):
+        mask = ~torch.isnan(labels)
+    else:
+        mask = (labels != null_val)
+    mask = mask.float()
+    mask /= torch.mean((mask))
+    mask = torch.where(torch.isnan(mask), torch.zeros_like(mask), mask)
+    loss = (preds - labels)>0.5
+    loss = loss * mask
+    loss = torch.where(torch.isnan(loss), torch.zeros_like(loss), loss)
+    loss = torch.sum(loss, dim=1) / labels.shape[1]
+    return torch.mean(loss)
+
 
 def masked_mse(preds, labels, null_val):
     if torch.isnan(null_val):
@@ -51,6 +67,7 @@ def compute_all_metrics(preds, labels, null_val):
     mae = masked_mae(preds, labels, null_val).item()
     mape = masked_mape(preds, labels, null_val).item()
     rmse = masked_rmse(preds, labels, null_val).item()
+    # rmse = masked_rmse(preds, labels, null_val).item()
     return mae, mape, rmse
     
 
@@ -96,3 +113,5 @@ def masked_f1_score(preds, labels, null_val=None, threshold_1=35, threshold_2=75
 
     loss = MF.multiclass_f1_score(preds_mean, labels_mean, num_classes=3, average=None)
     return loss
+
+

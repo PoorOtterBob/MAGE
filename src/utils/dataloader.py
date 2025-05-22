@@ -6,7 +6,7 @@ import threading
 import multiprocessing as mp
 
 class DataLoader(object):
-    def __init__(self, data, idx, seq_len, horizon, bs, logger, input_dim, pad_last_sample=False):
+    def __init__(self, data, idx, seq_len, horizon, bs, logger, input_dim, pad_last_sample=True):
         if pad_last_sample:
             num_padding = (bs - (len(idx) % bs)) % bs
             idx_padding = np.repeat(idx[-1:], num_padding, axis=0)
@@ -99,7 +99,8 @@ def load_dataset(data_path, args, logger):
     for cat in ['train', 'val', 'test']:
         idx = np.load(os.path.join(data_path, args.years, 'idx_' + cat + '.npy'))
         dataloader[cat + '_loader'] = DataLoader(ptr['data'][..., :args.input_dim], idx, \
-                                                 args.seq_len, args.horizon, args.bs, logger, args.input_dim)
+                                                 args.seq_len, args.horizon, args.bs,#  if cat == 'train' else 1, 
+                                                 logger, args.input_dim)
 
     scaler = StandardScaler(mean=ptr['mean'], std=ptr['std'])
     return dataloader, scaler
@@ -125,20 +126,18 @@ def load_adj_from_numpy(numpy_file):
 
 
 def get_dataset_info(dataset):
-    base_dir1 = os.getcwd() + '/data/'
     base_dir2 = os.getcwd() + '/data_knowair/'
     base_dir3 = os.getcwd() + '/datagagnn/'
     base_dir4 = os.getcwd() + '/data_PeMS0X/'
-    base_dir5 = '/home/mjm/LST/LargeST-main/AAAI2025/LargeST/data/'
+    base_dir5 = os.getcwd() + '/data/'
     base_dir6 = os.getcwd() + '/data_METR-LA/'
     base_dir7 = os.getcwd() + '/data_SZEV/station/'
-    base_dir8 = '/home/mjm/LST/LargeST-main/AAAI2025/Xtraffic/data/'
-    base_dir9 = '/home/mjm/LST/AAA/data_Milan_Trentino/'
-
+    base_dir8 = os.getcwd() + '/data_XTraffic/'
+    base_dir9 = os.getcwd() + '/data_Milan_Trentino/'
+    base_dir11 = os.getcwd() + '/data_sh/'
+    base_dir12 = os.getcwd() + '/data_bj/'
+    base_dir13 = os.getcwd() + '/data_ele/'
     d = {
-         '24_24': [base_dir1 + dataset, base_dir1+'adj_mx.npy', 1341],
-         '24_24_KA': [base_dir2 + '24_24', base_dir2+'adj_mx.npy', 184],
-         '24_24_G': [base_dir3 + '24_24', base_dir3+'adj_mx.npy', 209],
          '3': [base_dir4 + dataset, base_dir4+'PEMS03_adj.npy', 358, 3, 288, 12, 12],
          '4': [base_dir4 + dataset, base_dir4+'PEMS04_adj.npy', 307, 5, 288, 12, 12],
          '7': [base_dir4 + dataset, base_dir4+'PEMS07_adj.npy', 883, 3, 288, 12, 12],
@@ -154,53 +153,15 @@ def get_dataset_info(dataset):
          'call': [base_dir9 + dataset, base_dir9 + 'adj_mx.npy', 10000, 3, 24, 24, 24],
          'net': [base_dir9 + dataset, base_dir9 + 'adj_mx.npy', 10000, 3, 24, 24, 24],
          'sms': [base_dir9 + dataset, base_dir9 + 'adj_mx.npy', 10000, 3, 24, 24, 24,],
-        }
-    assert dataset in d.keys()
-    return d[dataset]
-
-def metapath(dataset):
-    base_dir1 = os.getcwd() + '/data/'
-    base_dir2 = os.getcwd() + '/data_knowair/'
-    base_dir3 = os.getcwd() + '/datagagnn/'
-    base_dir4 = os.getcwd() + '/data_PeMS0X/'
-    base_dir5 = '/home/mjm/LST/LargeST-main/AAAI2025/LargeST/data/'
-    base_dir7 = os.getcwd() + '/data_SZEV/station/'
+         'ele': [base_dir13 + dataset, base_dir13 + 'adj_mx.npy', 321, 3, 24, 24, 24],
+         'sh': [base_dir11 + dataset, base_dir11 + 'adj_mx.npy', 3042, 3, 24, 24, 24],
+         'bj': [base_dir12 + dataset, base_dir12 + 'adj_mx.npy', 528, 3, 24, 24, 24],
+         'knowair': [base_dir2 + '24_24', base_dir2+'adj_mx.npy', 184, 13, 8, 24, 24],
+         'ccaq': [base_dir3 + '24_24', base_dir3+'adj_mx.npy', 209, 10, 24, 24, 24],
     
-    base_dir9 = '/home/mjm/LST/AAA/data_Milan_Trentino/'
-
-    d = {
-         '24_24': [base_dir1 + dataset, base_dir1+'adj_mx.npy', 1341],
-         '24_24_KA': [base_dir2 + '24_24', base_dir2+'adj_mx.npy', 184],
-         '24_24_G': [base_dir3 + '24_24', base_dir3+'adj_mx.npy', 209],
-         '3': [base_dir4 + dataset, base_dir4+'PEMS03_adj.npy', 358, 3, 288],
-         '4': [base_dir4 + dataset, base_dir4+'PEMS04_adj.npy', 307, 5, 288],
-         '7': [base_dir4 + dataset, base_dir4+'PEMS07_adj.npy', 883, 3, 288],
-         '8': [base_dir4 + dataset, base_dir4+'PEMS08_adj.npy', 170, 5, 288],
-         'sd': [base_dir5 + dataset + '/' + dataset + '_meta.csv'],
-         'gba': [base_dir5 + dataset + '/' + dataset + '_meta.csv'],
-         'gla': [base_dir5 + dataset + '/' + dataset + '_meta.csv'],
-         'ca': [base_dir5 + dataset + '/' + dataset + '_meta.csv'],
-         'szev': [base_dir7 + '/meta.csv'],
-         'call': [base_dir9 + 'meta.csv'],
-         'net': [base_dir9 + 'meta.csv'],
-         'sms': [base_dir9 + 'meta.csv'],
+         
         }
     assert dataset in d.keys()
     return d[dataset]
 
-def load_meta(dataset):
-    base_dir1 = os.getcwd() + '/data/'
-    base_dir2 = os.getcwd() + '/data_knowair/'
-    base_dir3 = os.getcwd() + '/datagagnn/'
-    base_dir4 = os.getcwd() + '/data_PeMS0X/'
-    base_dir5 = '/home/mjm/LST/LargeST-main/AAAI2025/LargeST/data/'
-    base_dir6 = os.getcwd() + '/data_METR-LA/'
-    base_dir7 = os.getcwd() + '/data_SZEV/station/'
-    base_dir8 = '/home/mjm/LST/LargeST-main/AAAI2025/Xtraffic/data/'
-    base_dir9 = '/home/mjm/LST/AAA/data_Milan_Trentino/'
 
-    d = {
-        'sd': '/home/mjm/LST/AAA/data_largest/sd/process_sd_meta.npy',
-        }
-    assert dataset in d.keys()
-    return np.load(d[dataset])
