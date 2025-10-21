@@ -41,3 +41,13 @@ To run MAGE on <b>LargeST</b>, for example on SD, you may directly execute the P
 ```
 python experiments/mage/main.py --device cuda:0 --dataset sd --years 2019 --model_name mage
 ```
+
+## 4. Citation
+```
+@inproceedings{ma2025less, 
+  title     = {Less but More: Linear Adaptive Graph Learning Empowering Spatiotemporal Forecasting},
+  author    = {Ma, Jiaming and Wang, Binwu and Wang, Guanjun and Yang, Kuo and Zhou, Zhengyang and Wang, Pengkun and Wang, Xu and Wang, Yang},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2025}
+}
+```
