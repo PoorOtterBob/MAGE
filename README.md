@@ -43,7 +43,7 @@ python experiments/mage/main.py --device cuda:0 --dataset sd --years 2019 --mode
 ```
 
 ## 4. Citation
-```
+```bibtex
 @inproceedings{ma2025less, 
   title     = {Less but More: Linear Adaptive Graph Learning Empowering Spatiotemporal Forecasting},
   author    = {Ma, Jiaming and Wang, Binwu and Wang, Guanjun and Yang, Kuo and Zhou, Zhengyang and Wang, Pengkun and Wang, Xu and Wang, Yang},
