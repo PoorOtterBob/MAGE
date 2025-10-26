@@ -21,23 +21,18 @@ class MAGE(BaseModel):
                                               self.args.recur_num, 
                                               self.node_num, 
                                               blocknum=1, 
-                                              topk=self.args.topk,
-                                              outer=self.args.outer,
-                                              node_dim=self.args.node_dim)
+                                              topk=self.args.topk)
         self.backbone2 = Pre_Norm_Transformer(self.args.model_dim, 
                                               self.args.recur_num, 
                                               self.node_num, 
                                               blocknum=2, 
-                                              topk=self.args.topk,
-                                              outer=self.args.outer,
-                                              node_dim=self.args.node_dim)
+                                              topk=self.args.topk)
         self.backbone3 = Pre_Norm_Transformer(self.args.model_dim, 
                                               self.args.recur_num, 
                                               self.node_num, 
                                               blocknum=3, 
-                                              topk=self.args.topk,
-                                              outer=self.args.outer,
-                                              node_dim=self.args.node_dim)
+                                              topk=self.args.topk)
+        # self.ffn = SwiGLU_FFN(self.args.model_dim, self.args.model_dim)
 
     def forward(self, x, label=None, bias=[0, 0, 0]):
         prompt = self.prompt(x)
@@ -46,29 +41,24 @@ class MAGE(BaseModel):
         x, topk_indices2 = self.backbone2(x, bias[1])
         x, topk_indices3 = self.backbone3(h - x, bias[2])
         x = self.decoder(x) + self.decoder2(z)
-
-        return self.channel_decompress(x), torch.stack([torch.bincount(topk_indices1.flatten(), minlength=self.args.recur_num), 
-                                                        torch.bincount(topk_indices2.flatten(), minlength=self.args.recur_num), 
-                                                        torch.bincount(topk_indices3.flatten(), minlength=self.args.recur_num)], dim=0)
+        if self.training:
+            return self.channel_decompress(x), torch.stack([torch.bincount(topk_indices1.flatten(), minlength=self.args.recur_num), 
+                                                            torch.bincount(topk_indices2.flatten(), minlength=self.args.recur_num), 
+                                                            torch.bincount(topk_indices3.flatten(), minlength=self.args.recur_num)], dim=0)
+        else:
+            return self.channel_decompress(x)
     
     def channel_compress(self, x):
-        return x.transpose(1, 2).reshape(x.shape[0], self.node_num, -1)
+        return x.transpose(1, 2).reshape(self.args.bs, self.node_num, -1)
     
     def channel_decompress(self, x):
-        return x.reshape(x.shape[0], self.node_num, self.horizon, -1).transpose(1, 2)
+        return x.reshape(self.args.bs, self.node_num, self.horizon, -1).transpose(1, 2)
 
 
 class Pre_Norm_Transformer(nn.Module):
-    def __init__(self, dim, expert_num, node_num, blocknum, topk, outer, node_dim):
+    def __init__(self, dim, expert_num, node_num, blocknum, topk=4):
         super(Pre_Norm_Transformer, self).__init__()
-        self.attn = MAGE_Block(dim, 
-                               expert_num, 
-                               node_num, 
-                               depth=blocknum, 
-                               model_dim=dim, 
-                               graph_gen_dim=node_dim,
-                               topk=topk, 
-                               outer=outer)
+        self.attn = MAGE_Block(dim, expert_num, node_num, depth=blocknum, model_dim=dim, topk=topk)
         self.attn_norm = RMSNorm(dim)
 
         self.ffn = SwiGLU_FFN(dim, dim)
@@ -85,7 +75,7 @@ class Pre_Norm_Transformer(nn.Module):
         return x, topk_indices
 
 class MAGE_Block(nn.Module):
-    def __init__(self, dim, expert_num, node_num, depth, model_dim, graph_gen_dim=32, head=4, topk=4, outer=True):
+    def __init__(self, dim, expert_num, node_num, depth, model_dim, graph_gen_dim=32, head=4, topk=4):
         super(MAGE_Block, self).__init__()
         # Differential
         self.E1 = nn.Parameter(torch.rand(2, expert_num, node_num, graph_gen_dim))
@@ -100,8 +90,6 @@ class MAGE_Block(nn.Module):
         self.outer1 = nn.Parameter(torch.empty((dim, dim)).normal_(mean=0,std=0.1))
         self.outer2 = nn.Parameter(torch.eye(dim), requires_grad=False)
         self.outer_lambda = nn.Parameter(torch.tensor(99).log())
-        self.outer = outer
-
 
         self.depth = depth
         self.lambda_init = self.lambda_init_fn(depth)
@@ -139,31 +127,28 @@ class MAGE_Block(nn.Module):
 
         route_mask = self.normer(F.sigmoid(route + mask.log()))
         
+        # return route_mask + (route - route.detach()), topk_indices
         return route_mask, topk_indices
-
+        # return self.normer(route), topk_indices
 
     def normer(self, route, gate='sigmoid'):
+        # if gate == 'sigmoid':
+        #     route = F.sigmoid(route)
         return route / torch.sum(route, dim=-1, keepdim=True)
 
     def forward(self, x, bias):
-
+        '''route = self.router(x)
+        x = torch.einsum('kdj, bjf -> kbdf', torch.softmax(self.E2, dim=-1), x)
+        x = torch.einsum('kid, kbdf -> kbif', torch.softmax(self.E1, dim=-1), x)
+        x = torch.einsum('bik, kbif -> bif', route, x)'''
         route, topk_indices = self.selector(x, bias)
-        if self.outer:
-            x = torch.einsum('bik, e, ekid, ekdj, bjf, fc -> bic', 
-                            route,
-                            self.cal_coefficient(),
-                            torch.softmax(self.E1, dim=-1),
-                            torch.softmax(self.E2, dim=-1),
-                            x,
-                            self.cal_outer())
-        else:
-            x = torch.einsum('bik, e, ekid, ekdj, bjf -> bif', 
-                            route,
-                            self.cal_coefficient(),
-                            torch.softmax(self.E1, dim=-1),
-                            torch.softmax(self.E2, dim=-1),
-                            x,
-                            )
+        x = torch.einsum('bik, e, ekid, ekdj, bjf, fc -> bic', 
+                         route,
+                         self.cal_coefficient(),
+                         torch.softmax(self.E1, dim=-1),
+                         torch.softmax(self.E2, dim=-1),
+                         x,
+                         self.cal_outer())
         return x, topk_indices # self.outer(x) # x
     
 
@@ -180,6 +165,9 @@ class SwiGLU_FFN(nn.Module):
         
     def forward(self, x):
         return self.W3(self.dropout(F.silu(self.W1(x)) * self.W2(x)))
+
+
+
 
 
 class RMSNorm(nn.Module):
