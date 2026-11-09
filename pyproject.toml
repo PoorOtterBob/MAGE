@@ -1,0 +1,17 @@
+[project]
+name = "mage"
+version = "0.1.0"
+description = "Official code of MAGE (NeurIPS 2025)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+dependencies = [
+    "torch",
+    "numpy",
+    "pandas",
+    "scipy",
+    "tqdm",
+]
+
+[tool.uv]
+package = false

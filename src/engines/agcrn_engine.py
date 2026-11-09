@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 from src.base.engine import BaseEngine
 from torch.nn.parallel import DataParallel
 

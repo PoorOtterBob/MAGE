@@ -1,11 +1,9 @@
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
 from src.base.model import BaseModel
 
-import sys
 
 # Mixture of Adptive Graph Experts
 class MAGE(BaseModel):
@@ -37,7 +35,8 @@ class MAGE(BaseModel):
     def forward(self, x, label=None, bias=[0, 0, 0]):
         prompt = self.prompt(x)
         h = x = self.encoder(self.channel_compress(x)) + prompt
-        z, _ = x, topk_indices1 = self.backbone1(x, bias[0])
+        x, topk_indices1 = self.backbone1(x, bias[0])
+        z = x
         x, topk_indices2 = self.backbone2(x, bias[1])
         x, topk_indices3 = self.backbone3(h - x, bias[2])
         x = self.decoder(x) + self.decoder2(z)
@@ -49,10 +48,10 @@ class MAGE(BaseModel):
             return self.channel_decompress(x)
     
     def channel_compress(self, x):
-        return x.transpose(1, 2).reshape(self.args.bs, self.node_num, -1)
+        return x.transpose(1, 2).reshape(x.shape[0], self.node_num, -1)
     
     def channel_decompress(self, x):
-        return x.reshape(self.args.bs, self.node_num, self.horizon, -1).transpose(1, 2)
+        return x.reshape(x.shape[0], self.node_num, self.horizon, -1).transpose(1, 2)
 
 
 class Pre_Norm_Transformer(nn.Module):

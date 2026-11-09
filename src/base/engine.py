@@ -6,7 +6,6 @@ from tqdm import tqdm
 from src.utils.metrics import masked_mape
 from src.utils.metrics import masked_rmse
 from src.utils.metrics import compute_all_metrics, masked_f1_score, masked_ber
-import sys
 torch.autograd.set_detect_anomaly(True) 
 class BaseEngine():
     def __init__(self, device, model, dataloader, scaler, sampler, loss_fn, lrate, optimizer, \

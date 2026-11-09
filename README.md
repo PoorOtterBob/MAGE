@@ -59,6 +59,15 @@ To run MAGE on <b>LargeST</b>, for example on SD, you may directly execute the P
 python experiments/mage/main.py --device cuda:0 --dataset sd --years 2019 --model_name mage
 ```
 
+## ⚙️ Installation (uv)
+
+Dependencies are declared in [`pyproject.toml`](pyproject.toml) and managed with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv sync                      # create .venv and install dependencies
+uv run python experiments/mage/main.py --device cuda:0 --dataset sd --years 2019 --model_name mage
+```
+
 ## 📄 Citation
 
 If you find this repository useful, please cite our paper:
