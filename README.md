@@ -1,4 +1,21 @@
-# Less but More: Linear Adaptive Graph Learning Empowering Spatiotemporal Forecasting (NeurIPS 2025)
+<div align="center">
+
+# Less but More: Linear Adaptive Graph Learning Empowering Spatiotemporal Forecasting
+
+[![Venue NeurIPS%202025](https://img.shields.io/badge/Venue-NeurIPS%202025-4b44ce)](https://neurips.cc/Conferences/2025)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/) [![PyTorch](https://img.shields.io/badge/PyTorch-%E2%89%A51.10-ee4c2c.svg)](https://pytorch.org/)
+
+<p align="center">
+  <a href="#1-introduction-about-the-datasets">Datasets</a> |
+  <a href="#3-model-running">Running</a> |
+  <a href="#-citation">Citation</a> |
+  <a href="#-license">License</a>
+</p>
+
+</div>
+
 This is the official repository one of our NeurIPS 2025 papers. The effectiveness of Spatiotemporal Graph Convolutional Networks (STGCNs) critically hinges on the quality of the underlying graph topology. While end-to-end adaptive graph learning methods have demonstrated promising results in capturing latent spatiotemporal dependencies, they often suffer from high computational complexity and limited expressive capacity. In this paper, we propose MAGE for efficient spatiotemporal forecasting. We first conduct **a theoretical analysis** demonstrating that the ReLU activation function employed in existing methods amplifies edge-level noise during graph topology learning, thereby compromising the fidelity of the learned graph structures. To enhance model expressiveness, we introduce **a sparse yet balanced mixture-of-experts strategy**, where each expert perceives the unique underlying graph through kernel-based functions and operates with linear complexity relative to the number of nodes. The sparsity mechanism ensures that each node interacts exclusively with compatible experts, while the balancing mechanism promotes uniform activation across all experts, enabling diverse and adaptive graph representations. Furthermore, we **theoretically establish that a single graph convolution using the learned graph in MAGE is mathematically equivalent to multiple convolutional steps under conventional graphs**. We evaluate MAGE against 14 state-of-the-art baselines on 17 real-world spatiotemporal datasets. **MAGE achieves SOTA performance on 94% (48/51) of the evaluation metrics.** Notably, on the SD dataset, MAGE achieves an impressive 5.15% performance improvement, while also improving memory efficiency by 10X and training efficiency by 20X.
 
 <br>
@@ -42,12 +59,24 @@ To run MAGE on <b>LargeST</b>, for example on SD, you may directly execute the P
 python experiments/mage/main.py --device cuda:0 --dataset sd --years 2019 --model_name mage
 ```
 
-## 4. Citation
+## 📄 Citation
+
+If you find this repository useful, please cite our paper:
+
 ```bibtex
-@inproceedings{ma2025less, 
+@inproceedings{ma2025less,
   title     = {Less but More: Linear Adaptive Graph Learning Empowering Spatiotemporal Forecasting},
-  author    = {Ma, Jiaming and Wang, Binwu and Wang, Guanjun and Yang, Kuo and Zhou, Zhengyang and Wang, Pengkun and Wang, Xu and Wang, Yang},
-  booktitle = {Advances in Neural Information Processing Systems},
+  author    = {Ma, Jiaming and Wang, Binwu and Wang, Guanjun and Yang, Kuo and Zhou, Zhengyang and
+               Wang, Pengkun and Wang, Xu and Wang, Yang},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
   year      = {2025}
 }
 ```
+
+## 🙏 Acknowledgements
+
+Built on [LargeST](https://github.com/liuxu77/LargeST) and [PM2.5-GNN (KnowAir)](https://github.com/shuowang-ai/PM2.5-GNN). Each dataset keeps the license of its original release.
+
+## 📜 License
+
+The code in this repository is released under the [MIT License](LICENSE).
